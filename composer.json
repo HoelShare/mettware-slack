@@ -1,0 +1,22 @@
+{
+    "name": "hoelshare/mettware-slack",
+    "description": "Send Slack Messages",
+    "type": "shopware-platform-plugin",
+    "version": "0.0.2",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "MettwareSlack\\": "src/"
+        }
+    },
+    "require": {
+        "hoelshare/mettware": "^0.0.4"
+    },
+    "extra": {
+        "shopware-plugin-class": "MettwareSlack\\MettwareSlack",
+        "label": {
+            "de-DE": "Sendet Slack Nachrichten",
+            "en-GB": "Send Slack Messages"
+        }
+    }
+}

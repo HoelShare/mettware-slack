@@ -4,10 +4,27 @@
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
     <services>
-        <service id="MettwareSlack\Handler\SlackHandler">
+        <service id="MettwareSlack\Handler\StopOrdersSlackHandler">
             <argument id="shopware.app_system.guzzle" type="service"/>
             <argument id="Shopware\Core\System\SystemConfig\SystemConfigService" type="service" />
             <tag name="messenger.message_handler"/>
+        </service>
+
+        <service id="MettwareSlack\Handler\OpenInvoiceHandler">
+            <argument id="shopware.app_system.guzzle" type="service"/>
+            <argument id="Shopware\Core\System\SystemConfig\SystemConfigService" type="service" />
+            <argument id="MettwareSlack\Service\InvoiceService" type="service" />
+            <tag name="messenger.message_handler"/>
+        </service>
+
+        <service id="MettwareSlack\Command\OpenInvoiceCommand">
+            <argument id="MettwareSlack\Service\InvoiceService" type="service" />
+            <argument id="messenger.bus.shopware" type="service" />
+            <tag name="console.command" />
+        </service>
+
+        <service id="MettwareSlack\Service\InvoiceService">
+            <argument id="order.repository" type="service" />
         </service>
     </services>
 </container>

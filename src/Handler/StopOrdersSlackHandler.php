@@ -13,7 +13,7 @@ use Shopware\Core\Framework\MessageQueue\Handler\AbstractMessageHandler;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\HttpFoundation\Request;
 
-class SlackHandler extends AbstractMessageHandler
+class StopOrdersSlackHandler extends AbstractMessageHandler
 {
     private ClientInterface $client;
     private SystemConfigService $systemConfigService;
@@ -25,7 +25,7 @@ class SlackHandler extends AbstractMessageHandler
     }
 
     /**
-     * @param SlackMessage $message
+     * @param StopOrdersMessage $message
      */
     public function handle($message): void
     {
@@ -55,22 +55,14 @@ class SlackHandler extends AbstractMessageHandler
 
     public static function getHandledMessages(): iterable
     {
-        return [SlackMessage::class];
+        return [StopOrdersMessage::class];
     }
 
+    /**
+     * @param StopOrdersMessage $slackMessage
+     */
     private function getBlocks(SlackMessage $slackMessage): array
     {
-        if (!($slackMessage instanceof StopOrdersMessage)) {
-            return [
-                [
-                    "type" => "plain_text",
-                    "text" => $slackMessage->getMessage(),
-                    "emoji" => true
-                ]
-            ];
-        }
-        /** @var StopOrdersMessage $slackMessage */
-
         $orders = $slackMessage->getOrders();
 
 

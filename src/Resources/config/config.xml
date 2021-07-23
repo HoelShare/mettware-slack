@@ -11,5 +11,9 @@
             <name>slackBotToken</name>
             <label>Slack Bot Token</label>
         </input-field>
+        <input-field>
+            <name>paypalMeLink</name>
+            <label>Paypal ME Link</label>
+        </input-field>
     </card>
 </config>

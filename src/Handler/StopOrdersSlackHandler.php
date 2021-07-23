@@ -108,8 +108,8 @@ class StopOrdersSlackHandler extends AbstractMessageHandler
     private function formatName(ProductEntity $product): string
     {
         $name = $product->getTranslation('name');
-
-        foreach ($product->getOptions() ?? [] as $index => $option) {
+        $index = 0;
+        foreach ($product->getOptions() ?? [] as $option) {
             if ($index === 0) {
                 $name .= ' - ';
             }
@@ -118,6 +118,7 @@ class StopOrdersSlackHandler extends AbstractMessageHandler
             if ($index + 1 < $product->getOptions()->count()) {
                 $name .= ', ';
             }
+            $index++;
         }
 
         return $name;

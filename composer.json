@@ -2,8 +2,14 @@
     "name": "hoelshare/mettware-slack",
     "description": "Send Slack Messages",
     "type": "shopware-platform-plugin",
-    "version": "0.0.2",
+    "version": "1.0.0",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Sebastian Hölscher",
+            "role": "Manufacturer"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "MettwareSlack\\": "src/"

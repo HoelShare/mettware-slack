@@ -6,8 +6,8 @@ namespace MettwareSlack\Handler;
 
 use GuzzleHttp\ClientInterface;
 use MettwareSlack\Service\InvoiceService;
+use Shopware\Core\Checkout\Order\Aggregate\OrderLineItem\OrderLineItemEntity;
 use Shopware\Core\Checkout\Order\OrderEntity;
-use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Api\Context\SystemSource;
 use Shopware\Core\Framework\Context;
@@ -96,7 +96,7 @@ class OpenInvoiceHandler extends AbstractMessageHandler
             $orderCreationDate = $orderCreationDate->setTimezone(new \DateTimeZone('Europe/Berlin'));
 
             foreach ($order->getLineItems()->getIterator() as $lineItem) {
-                $name = $this->formatName($lineItem->getProduct(), $context);
+                $name = $this->formatName($lineItem, $context);
                 $markdown .= sprintf(
                     '> %s - %sx %s %1.2f%s%s',
                     $orderCreationDate->format('d.m.Y H:i'),
@@ -142,8 +142,13 @@ class OpenInvoiceHandler extends AbstractMessageHandler
         ];
     }
 
-    private function formatName(ProductEntity $product, Context $context): string
+    private function formatName(OrderLineItemEntity $lineItem, Context $context): string
     {
+        $product = $lineItem->getProduct();
+        if ($product === null) {
+            return $lineItem->getLabel();
+        }
+
         $name = $product->getTranslation('name');
 
         if ($name === null && $product->getParentId() !== null) {

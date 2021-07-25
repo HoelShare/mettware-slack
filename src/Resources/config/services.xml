@@ -14,6 +14,7 @@
             <argument id="shopware.app_system.guzzle" type="service"/>
             <argument id="Shopware\Core\System\SystemConfig\SystemConfigService" type="service" />
             <argument id="MettwareSlack\Service\InvoiceService" type="service" />
+            <argument id="product.repository" type="service" />
             <tag name="messenger.message_handler"/>
         </service>
 

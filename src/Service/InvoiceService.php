@@ -2,7 +2,9 @@
 
 namespace MettwareSlack\Service;
 
+use MettwareSlack\Handler\OpenInvoiceMessage;
 use Shopware\Core\Checkout\Order\OrderEntity;
+use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -10,6 +12,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\RangeFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 
 class InvoiceService
 {
@@ -25,6 +28,8 @@ class InvoiceService
         $criteria = new Criteria();
         $criteria->addAssociation('lineItems');
         $criteria->addAssociation('lineItems.product');
+        $criteria->addAssociation('lineItems.product.options');
+        $criteria->addAssociation('lineItems.product.parent');
         $criteria->addAssociation('currency');
 
         $criteria->addFilter(new NotFilter('AND', [new EqualsFilter('order.transactions.stateMachineState.technicalName', 'paid')]));
@@ -40,16 +45,28 @@ class InvoiceService
         return $criteria;
     }
 
+    /**
+     * @return OpenInvoiceMessage[]
+     */
     public function getSlackIdsForOpenInvoices(Context $context): array
     {
         $orders = $this->fetchOrders($this->getOpenOrdersCriteria(), $context);
         $slackIds = [];
         /** @var OrderEntity $order */
         foreach ($orders as $order) {
-            $slackIds[$order->getBillingAddress()->getAdditionalAddressLine1()] = true;
+            $languageId = Defaults::LANGUAGE_SYSTEM;
+            if ($order->getOrderCustomer() !== null && $order->getOrderCustomer()->getCustomer() !== null) {
+                $languageId = $order->getOrderCustomer()->getCustomer()->getLanguageId();
+            }
+            $slackIds[$order->getBillingAddress()->getAdditionalAddressLine1()] = $languageId;
         }
 
-        return array_keys($slackIds);
+        $messages = [];
+        foreach ($slackIds as $slackId => $languageId) {
+            $messages[] = new OpenInvoiceMessage($slackId, $languageId);
+        }
+
+        return $messages;
     }
 
     public function getOpenInvoicesForSlackId(string $slackId, Context $context): EntitySearchResult
@@ -60,8 +77,10 @@ class InvoiceService
     private function fetchOrders(Criteria $criteria, Context $context): EntitySearchResult
     {
         $criteria->addAssociation('orderCustomer');
+        $criteria->addAssociation('orderCustomer.customer');
         $criteria->addAssociation('billingAddress');
         $criteria->addAssociation('transactions');
+        $criteria->addSorting(new FieldSorting('order.orderDateTime'));
 
         return $this->orderRepository->search($criteria, $context);
     }

@@ -8,7 +8,11 @@ use GuzzleHttp\ClientInterface;
 use MettwareSlack\Service\InvoiceService;
 use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Content\Product\ProductEntity;
+use Shopware\Core\Defaults;
+use Shopware\Core\Framework\Api\Context\SystemSource;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\MessageQueue\Handler\AbstractMessageHandler;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
@@ -19,15 +23,18 @@ class OpenInvoiceHandler extends AbstractMessageHandler
     private ClientInterface $client;
     private SystemConfigService $systemConfigService;
     private InvoiceService $invoiceService;
+    private EntityRepositoryInterface $productRepository;
 
     public function __construct(
         ClientInterface $client,
         SystemConfigService $systemConfigService,
-        InvoiceService $invoiceService
+        InvoiceService $invoiceService,
+        EntityRepositoryInterface $productRepository
     ) {
         $this->client = $client;
         $this->systemConfigService = $systemConfigService;
         $this->invoiceService = $invoiceService;
+        $this->productRepository = $productRepository;
     }
 
     /**
@@ -35,7 +42,13 @@ class OpenInvoiceHandler extends AbstractMessageHandler
      */
     public function handle($message): void
     {
-        $context = Context::createDefaultContext();
+        $context = new Context(
+            new SystemSource(),
+            [],
+            Defaults::CURRENCY,
+            [$message->getLanguageId(), Defaults::LANGUAGE_SYSTEM]
+        );
+
         $token = $this->systemConfigService->get('MettwareSlack.config.slackBotToken');
         $paypalMeLink = $this->systemConfigService->get('MettwareSlack.config.paypalMeLink');
 
@@ -56,14 +69,15 @@ class OpenInvoiceHandler extends AbstractMessageHandler
                     ],
                     'json' => [
                         'channel' => $receiver,
-                        "blocks" => $this->getBlocks($orders, $paypalMeLink),
+                        "blocks" => $this->getBlocks($orders, $paypalMeLink, $context),
                     ],
                 ]
             );
+            sleep(1);
         }
     }
 
-    private function getBlocks(EntitySearchResult $orders, string $paypalMeLink): array
+    private function getBlocks(EntitySearchResult $orders, string $paypalMeLink, Context $context): array
     {
         /** @var OrderEntity $firstOrder */
         $firstOrder = $orders->first();
@@ -77,13 +91,23 @@ class OpenInvoiceHandler extends AbstractMessageHandler
         foreach ($orders->getIterator() as $order) {
             $total += $order->getAmountTotal();
 
+            /** @var \DateTimeImmutable $orderCreationDate */
+            $orderCreationDate = $order->getCreatedAt();
+            $orderCreationDate = $orderCreationDate->setTimezone(new \DateTimeZone('Europe/Berlin'));
+
             foreach ($order->getLineItems()->getIterator() as $lineItem) {
-                $name = $this->formatName($lineItem->getProduct());
-                $markdown .= '>' . $order->getCreatedAt()->format('d.m.Y H:i') . ' - ' . $lineItem->getQuantity(
-                    ) . 'x ' . $name . ' ' . $lineItem->getTotalPrice() . $order->getCurrency()->getSymbol() . PHP_EOL;
+                $name = $this->formatName($lineItem->getProduct(), $context);
+                $markdown .= sprintf(
+                    '> %s - %sx %s %1.2f%s%s',
+                    $orderCreationDate->format('d.m.Y H:i'),
+                    $lineItem->getQuantity(),
+                    $name,
+                    $lineItem->getTotalPrice(),
+                    $order->getCurrency()->getSymbol(),
+                    PHP_EOL,
+                );
             }
         }
-
 
         return [
             [
@@ -118,11 +142,20 @@ class OpenInvoiceHandler extends AbstractMessageHandler
         ];
     }
 
-    private function formatName(ProductEntity $product): string
+    private function formatName(ProductEntity $product, Context $context): string
     {
         $name = $product->getTranslation('name');
 
-        foreach ($product->getOptions() ?? [] as $index => $option) {
+        if ($name === null && $product->getParentId() !== null) {
+            $name = $this->fetchProductName($product->getParentId(), $context);
+        }
+
+        if ($product->getOptions() === null) {
+            return $name;
+        }
+
+        $index = 0;
+        foreach ($product->getOptions() as $option) {
             if ($index === 0) {
                 $name .= ' - ';
             }
@@ -131,6 +164,8 @@ class OpenInvoiceHandler extends AbstractMessageHandler
             if ($index + 1 < $product->getOptions()->count()) {
                 $name .= ', ';
             }
+
+            $index++;
         }
 
         return $name;
@@ -139,5 +174,12 @@ class OpenInvoiceHandler extends AbstractMessageHandler
     public static function getHandledMessages(): iterable
     {
         return [OpenInvoiceMessage::class];
+    }
+
+    private function fetchProductName(string $parentId, Context $context): string
+    {
+        $criteria = new Criteria([$parentId]);
+
+        return $this->productRepository->search($criteria, $context)->get($parentId)->getTranslation('name');
     }
 }

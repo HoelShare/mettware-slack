@@ -9,6 +9,7 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\RangeFilter;
@@ -32,7 +33,7 @@ class InvoiceService
         $criteria->addAssociation('lineItems.product.parent');
         $criteria->addAssociation('currency');
 
-        $criteria->addFilter(new NotFilter('AND', [new EqualsFilter('order.transactions.stateMachineState.technicalName', 'paid')]));
+        $criteria->addFilter(new NotFilter('AND', [new EqualsAnyFilter('order.transactions.stateMachineState.technicalName',['paid', 'cancelled'])]));
         $criteria->addFilter(new RangeFilter('order.amountTotal', [RangeFilter::GT => 0]));
         return $criteria;
     }
